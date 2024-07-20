@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta, timezone
 import jwt
+from config.config import blogs_collection
 from passlib.context import CryptContext
 from models.model import UserInDB
-from config.config import blogs_collection
 import os
+from datetime import timedelta
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
