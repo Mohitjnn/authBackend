@@ -1,13 +1,13 @@
 from datetime import datetime, timedelta, timezone
 import jwt
 from passlib.context import CryptContext
-from models.model import UserInDB, TokenData
+from models.model import UserInDB
 from config.config import blogs_collection
 import os
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
+ACCESS_TOKEN_EXPIRE_MINUTES = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
