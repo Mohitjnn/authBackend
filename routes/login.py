@@ -4,7 +4,7 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, status, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from utils.auth import authenticate_user, create_access_token
-from models.model import Token, Login
+from models.model import Token, Login, TokenData
 import os
 from dotenv import load_dotenv
 
@@ -36,7 +36,7 @@ async def login_for_access_token(
     return Token(access_token=access_token, token_type="bearer")
 
 
-@login_root.post("/signIn", response_model=Token)
+@login_root.post("/signIn", response_model=TokenData)
 async def login_for_access_token(form_data: Login, response: Response):
     user = authenticate_user(form_data.userName, form_data.password)
     if not user:
@@ -54,4 +54,4 @@ async def login_for_access_token(form_data: Login, response: Response):
     response.set_cookie(
         key="access_token", value=f"Bearer {access_token}", httponly=True
     )
-    return Token(access_token=access_token, token_type="bearer")
+    return TokenData(username=user.username)

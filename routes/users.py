@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException, status, APIRouter
+from fastapi import Depends, HTTPException, status, APIRouter, Query
 import jwt
 from jwt.exceptions import InvalidTokenError
 from models.model import TokenData, User
@@ -38,8 +38,14 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
 
 
 @users_root.get("/users/me")
-async def read_users_me(current_user: Annotated[User, Depends(get_current_user)]):
-    return current_user
+async def read_users_me(
+    current_user: Annotated[User, Depends(get_current_user)], username: str = Query(...)
+):
+    if current_user:
+        user_info = get_user(username)
+        if user_info is None:
+            raise HTTPException(status_code=404, detail="User not found")
+        return user_info
 
 
 @users_root.get("/users/me/items/")
