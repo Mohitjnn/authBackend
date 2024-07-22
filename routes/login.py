@@ -31,7 +31,12 @@ async def login_for_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
     response.set_cookie(
-        key="access_token", value=f"Bearer {access_token}", httponly=True
+        key="access_token",
+        value=f"Bearer {access_token}",
+        httponly=True,
+        samesite="strict",  # Adjust this based on your needs
+        secure=False,  # Set to True if using HTTPS
+        path="/",
     )
     return Token(access_token=access_token, token_type="bearer")
 
@@ -52,6 +57,11 @@ async def login_for_access_token(form_data: Login, response: Response):
         data={"sub": user.username}, expires_delta=access_token_expires
     )
     response.set_cookie(
-        key="access_token", value=f"Bearer {access_token}", httponly=True
+        key="access_token",
+        value=f"Bearer {access_token}",
+        httponly=True,
+        samesite="lax",  # Adjust this based on your needs
+        secure=False,  # Set to True if using HTTPS
+        path="/",
     )
     return TokenData(username=user.username)
