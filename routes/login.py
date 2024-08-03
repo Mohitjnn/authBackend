@@ -1,10 +1,10 @@
-from fastapi import APIRouter
+# login.py
+from fastapi import APIRouter, Depends, HTTPException, status
 from datetime import timedelta
 from typing import Annotated
-from fastapi import Depends, HTTPException, status, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from utils.auth import authenticate_user, create_access_token
-from models.model import Token, Login, TokenData
+from models.model import Token, Login
 import os
 from dotenv import load_dotenv
 
@@ -15,7 +15,7 @@ login_root = APIRouter()
 
 @login_root.post("/token", response_model=Token)
 async def login_for_access_token(
-    form_data: Annotated[OAuth2PasswordRequestForm, Depends()], response: Response
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
 ):
     user = authenticate_user(form_data.username, form_data.password)
     if not user:
@@ -30,19 +30,11 @@ async def login_for_access_token(
     access_token = create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
-    response.set_cookie(
-        key="access_token",
-        value=f"Bearer {access_token}",
-        httponly=True,
-        samesite="strict",  # Adjust this based on your needs
-        secure=False,  # Set to True if using HTTPS
-        path="/",
-    )
-    return Token(access_token=access_token, token_type="bearer")
+    return Token(access_token=access_token, token_type="bearer", username=user.username)
 
 
-@login_root.post("/signIn", response_model=TokenData)
-async def login_for_access_token(form_data: Login, response: Response):
+@login_root.post("/signIn", response_model=Token)
+async def login_for_access_token(form_data: Login):
     user = authenticate_user(form_data.userName, form_data.password)
     if not user:
         raise HTTPException(
@@ -56,12 +48,4 @@ async def login_for_access_token(form_data: Login, response: Response):
     access_token = create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
-    response.set_cookie(
-        key="access_token",
-        value=f"Bearer {access_token}",
-        httponly=True,
-        samesite="lax",  # Adjust this based on your needs
-        secure=False,  # Set to True if using HTTPS
-        path="/",
-    )
-    return TokenData(username=user.username)
+    return Token(access_token=access_token, token_type="bearer", username=user.username)

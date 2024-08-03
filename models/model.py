@@ -9,6 +9,7 @@ class Login(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
+    username: str
 
 
 class TokenWithUserName(BaseModel):
@@ -27,7 +28,18 @@ class User(BaseModel):
     full_name: str | None = None
     address: str | None = None
     bio: str | None = None
-    phoneNumber: int | None = None
+    phoneNumber: float | None = None
+    disabled: bool | None = None
+
+
+class signupUser(BaseModel):
+    username: str
+    email: str | None = None
+    full_name: str | None = None
+    address: str | None = None
+    bio: str | None = None
+    phoneNumber: float | None = None
+    hashed_password: str
 
 
 class UserInDB(User):
