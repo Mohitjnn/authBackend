@@ -44,3 +44,12 @@ class signupUser(BaseModel):
 
 class UserInDB(User):
     hashed_password: str
+
+
+class Note(BaseModel):
+    id: int | None = None
+    title: str
+    description: str
+    date: str
+    image_url: str | None = None
+    user_id: str

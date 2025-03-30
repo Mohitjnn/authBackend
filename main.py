@@ -4,12 +4,13 @@ from routes.users import users_root
 from routes.login import login_root
 from routes.logout import logout_root
 from routes.signup import signupRouter
+from routes.notes import notes_router
 
 app = FastAPI()
 
 
 origins = [
-    "http://192.168.29.147:3000",
+    "http://192.168.1.106:3000",
     "http://127.0.0.1:3000",
     "http://localhost:3000",
 ]
@@ -26,3 +27,4 @@ app.include_router(login_root)
 app.include_router(users_root)
 app.include_router(logout_root)
 app.include_router(signupRouter)
+app.include_router(notes_router)
