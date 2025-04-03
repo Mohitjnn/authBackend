@@ -15,7 +15,7 @@ login_root = APIRouter()
 
 @login_root.post("/token", response_model=Token)
 async def login_for_access_token(
-    form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
 ):
     user = authenticate_user(form_data.username, form_data.password)
     if not user:
@@ -46,6 +46,7 @@ async def login_for_access_token(form_data: Login):
         minutes=int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
     )
     access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
+        data={"sub": user.username, "role": user.role},
+        expires_delta=access_token_expires,
     )
     return Token(access_token=access_token, token_type="bearer", username=user.username)

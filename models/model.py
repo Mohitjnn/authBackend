@@ -30,6 +30,7 @@ class User(BaseModel):
     bio: str | None = None
     phoneNumber: float | None = None
     disabled: bool | None = None
+    role: str  # Add this field
 
 
 class signupUser(BaseModel):
@@ -40,6 +41,7 @@ class signupUser(BaseModel):
     bio: str | None = None
     phoneNumber: float | None = None
     hashed_password: str
+    role: str  # Add this field
 
 
 class UserInDB(User):
