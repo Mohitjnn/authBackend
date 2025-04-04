@@ -1,6 +1,5 @@
 from fastapi import Depends, HTTPException, status, APIRouter, Request
-import jwt
-from jwt.exceptions import InvalidTokenError
+from jose import JWTError, jwt
 from models.model import TokenData, User
 from typing import Annotated
 from utils.auth import get_user
@@ -26,26 +25,19 @@ def get_token_from_header(request: Request):
 
 
 async def get_current_user(token: Annotated[str, Depends(get_token_from_header)]):
-    print("Received token:", token)  # Debug statement
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(
-            token, os.getenv("SECRET_KEY"), algorithms=[os.getenv("ALGORITHM")]
-        )
-        print("Decoded payload:", payload)  # Debug statement
+        # Explicitly specify algorithm
+        payload = jwt.decode(token, os.getenv("SECRET_KEY"), algorithms=["HS256"])
         username: str = payload.get("sub")
         if username is None:
             raise credentials_exception
         token_data = TokenData(username=username)
-    except InvalidTokenError as e:
-        print("Token error:", str(e))  # Debug statement
-        raise credentials_exception
-    except Exception as e:
-        print("Decoding error:", str(e))  # Debug statement
+    except JWTError:
         raise credentials_exception
 
     user = get_user(username=token_data.username)
