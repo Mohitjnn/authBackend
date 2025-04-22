@@ -205,9 +205,9 @@ async def get_note(
 @notes_router.get("/image/{note_id}")
 async def get_note_image(
     note_id: int,
-    # current_user: Annotated[User, Depends(get_current_active_user)]
+    current_user: Annotated[User, Depends(get_current_active_user)]
 ):
-    note = notes_collection.find_one({"id": note_id, "user_id": "mohitjnn"})
+    note = notes_collection.find_one({"id": note_id, "user_id": current_user.username})
     if not note or not note.get("image_url"):
         raise HTTPException(status_code=404, detail="Note or image not found")
 
