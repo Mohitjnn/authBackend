@@ -14,6 +14,7 @@ app = FastAPI()
 ALLOWED_ORIGIN = os.getenv("ALLOWED_URL")
 origins = [
     ALLOWED_ORIGIN,
+    "http://192.168.29.147:3000"
     "http://127.0.0.1:3000",
     "http://localhost:3000",
 ]
