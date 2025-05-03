@@ -59,19 +59,3 @@ async def read_users_me(
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
     return current_user
-
-
-@users_root.get("/users/students")
-async def get_students(
-    current_user: Annotated[User, Depends(get_current_active_user)],
-):
-    if current_user.role != "professor":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only professors can view student list",
-        )
-
-    students = list(
-        blogs_collection.find({"role": "student"}, {"_id": 0, "hashed_password": 0})
-    )
-    return students

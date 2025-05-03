@@ -25,23 +25,19 @@ class TokenData(BaseModel):
 class User(BaseModel):
     username: str
     email: str | None = None
-    full_name: str | None = None
-    address: str | None = None
+    diary_name: str | None = None
     bio: str | None = None
     phoneNumber: float | None = None
     disabled: bool | None = None
-    role: str  # Add this field
 
 
 class signupUser(BaseModel):
     username: str
     email: str | None = None
-    full_name: str | None = None
-    address: str | None = None
+    diary_name: str | None = None
     bio: str | None = None
     phoneNumber: float | None = None
     hashed_password: str
-    role: str  # Add this field
 
 
 class UserInDB(User):
@@ -55,3 +51,4 @@ class Note(BaseModel):
     date: str
     image_url: str | None = None
     user_id: str
+    audio_url: str | None = None
