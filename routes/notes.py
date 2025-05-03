@@ -23,7 +23,7 @@ notes_collection = db.noteDiary
 S3_BUCKET = os.getenv("MY_AWS_S3_BUCKET_NAME", "your-bucket-name")
 S3_REGION = os.getenv("MY_AWS_S3_REGION", "us-east-1")
 MY_AWS_ACCESS_KEY = os.getenv("MY_AWS_ACCESS_KEY", "your-access-key")
-MY_AWS_SECRET_KEY = os.getenv("AWS_SECRET_KEY", "your-secret-key")
+MY_AWS_SECRET_KEY = os.getenv("MY_AWS_SECRET_KEY", "your-secret-key")
 
 # Initialize S3 client with retry configuration
 session = boto3.Session(
