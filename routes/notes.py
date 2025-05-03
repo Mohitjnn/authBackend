@@ -20,16 +20,16 @@ db = client.memories
 notes_collection = db.noteDiary
 
 # S3 Configuration - Use environment variables for security
-S3_BUCKET = os.getenv("AWS_S3_BUCKET_NAME", "your-bucket-name")
-S3_REGION = os.getenv("AWS_S3_REGION", "us-east-1")
-AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY", "your-access-key")
-AWS_SECRET_KEY = os.getenv("AWS_SECRET_KEY", "your-secret-key")
+S3_BUCKET = os.getenv("MY_AWS_S3_BUCKET_NAME", "your-bucket-name")
+S3_REGION = os.getenv("MY_AWS_S3_REGION", "us-east-1")
+MY_AWS_ACCESS_KEY = os.getenv("MY_AWS_ACCESS_KEY", "your-access-key")
+MY_AWS_SECRET_KEY = os.getenv("AWS_SECRET_KEY", "your-secret-key")
 
 # Initialize S3 client with retry configuration
 session = boto3.Session(
     region_name=S3_REGION,
-    aws_access_key_id=AWS_ACCESS_KEY,
-    aws_secret_access_key=AWS_SECRET_KEY,
+    aws_access_key_id=MY_AWS_ACCESS_KEY,
+    aws_secret_access_key=MY_AWS_SECRET_KEY,
 )
 
 # Create a config with retries
