@@ -63,7 +63,7 @@ async def save_file_to_s3(file: UploadFile, file_type: str) -> dict:
         logger.info(f"Successfully uploaded {file_type} to S3: {object_key}")
 
         # Create the URL
-        url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{object_key}"
+        url = f"https://d2ljorwegx33x7.cloudfront.net/{object_key}"
 
         return {
             "url": url,
