@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
 from passlib.context import CryptContext
+from fastapi import HTTPException
 import os
 from dotenv import load_dotenv
 from config.config import blogs_collection
@@ -15,12 +16,43 @@ ACCESS_TOKEN_EXPIRE_MINUTES = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
-
-
 def get_password_hash(password):
-    return pwd_context.hash(password)
+    """Hash a password"""
+    try:
+        # Simple truncation to 72 characters (not bytes) to be safe
+        if len(password) > 72:
+            password = password[:72]
+        
+        return pwd_context.hash(password)
+    except Exception as e:
+        print(f"Password hashing error: {e}")
+        print(f"Password length: {len(password)} chars")
+        # Try with even shorter password
+        try:
+            short_password = password[:50]
+            return pwd_context.hash(short_password)
+        except Exception as e2:
+            print(f"Second attempt failed: {e2}")
+            raise HTTPException(status_code=500, detail=f"Unable to hash password: {str(e)}")
+
+
+def verify_password(plain_password, hashed_password):
+    """Verify a password against a hash"""
+    try:
+        # Simple truncation to 72 characters to match hashing
+        if len(plain_password) > 72:
+            plain_password = plain_password[:72]
+            
+        return pwd_context.verify(plain_password, hashed_password)
+    except Exception as e:
+        print(f"Password verification error: {e}")
+        # Try with shorter password
+        try:
+            short_password = plain_password[:50]
+            return pwd_context.verify(short_password, hashed_password)
+        except Exception as e2:
+            print(f"Second verification attempt failed: {e2}")
+            return False
 
 
 def get_user(username: str):

@@ -2,8 +2,27 @@ from fastapi import APIRouter, HTTPException
 from config.config import blogs_collection
 from utils.auth import get_password_hash
 from models.model import signupUser
+from pydantic import BaseModel
 
 signupRouter = APIRouter()
+
+
+class HashPasswordRequest(BaseModel):
+    password: str
+
+
+@signupRouter.post("/hash-password")
+async def hash_password(request: HashPasswordRequest):
+    """Generate a hashed version of the provided password"""
+    try:
+        hashed = get_password_hash(request.password)
+        return {
+            "original_password": request.password,
+            "hashed_password": hashed,
+            "message": "Password hashed successfully"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error hashing password: {str(e)}")
 
 
 @signupRouter.post("/signup")

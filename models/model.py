@@ -52,3 +52,4 @@ class Note(BaseModel):
     image_url: str | None = None
     user_id: str
     audio_url: str | None = None
+    video_url: str | None = None

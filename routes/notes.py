@@ -88,26 +88,63 @@ async def save_file_to_s3(file: UploadFile, file_type: str) -> dict:
 async def get_file_from_s3(file_url: str):
     """Get file from S3"""
     try:
-        # Extract key from URL
-        key = file_url.split(".amazonaws.com/")[1]
-        logger.info(f"Getting file from S3: {key}")
+        from urllib.parse import unquote, unquote_plus
+        
+        # Handle both CloudFront and S3 URLs
+        if "cloudfront.net" in file_url:
+            # CloudFront URL format: https://d2ljorwegx33x7.cloudfront.net/filename
+            key = file_url.split("cloudfront.net/")[1]
+        elif ".amazonaws.com/" in file_url:
+            # S3 URL format: https://bucket.s3.region.amazonaws.com/filename
+            key = file_url.split(".amazonaws.com/")[1]
+        else:
+            # Assume it's just the key/filename
+            key = file_url
+        
+        # Try different variations of the key
+        keys_to_try = [
+            key,  # Original key
+            unquote_plus(key),  # + to space
+            unquote(key),  # Regular decode
+            key.replace('+', ' '),  # Manual + to space replacement
+        ]
+        
+        # Remove duplicates while preserving order
+        unique_keys = []
+        for k in keys_to_try:
+            if k not in unique_keys:
+                unique_keys.append(k)
+        
+        # Try each key until one works
+        for attempt_key in unique_keys:
+            try:
+                response = s3_client.get_object(Bucket=S3_BUCKET, Key=attempt_key)
+                
+                # Read data
+                data = response["Body"].read()
+                content_type = response.get("ContentType", "application/octet-stream")
+                
+                return {"data": data, "content_type": content_type}
+                
+            except ClientError as e:
+                if e.response["Error"].get("Code") == "NoSuchKey":
+                    continue
+                else:
+                    # Different error, re-raise
+                    raise
+        
+        # If we get here, none of the keys worked
+        raise HTTPException(status_code=404, detail=f"File not found with any key variation")
 
-        # Get the object from S3
-        response = s3_client.get_object(Bucket=S3_BUCKET, Key=key)
-
-        # Read data
-        data = response["Body"].read()
-        content_type = response.get("ContentType", "application/octet-stream")
-        logger.info(f"Successfully retrieved file, size: {len(data)} bytes")
-
-        return {"data": data, "content_type": content_type}
-
+    except IndexError as e:
+        logger.error(f"Error parsing URL '{file_url}': {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid file URL format: {file_url}")
     except ClientError as e:
         logger.error(f"Error getting from S3: {e}")
         if hasattr(e, "response") and "Error" in e.response:
             error_code = e.response["Error"].get("Code", "")
             if error_code == "NoSuchKey":
-                raise HTTPException(status_code=404, detail="File not found in S3")
+                raise HTTPException(status_code=404, detail=f"File not found in S3")
         raise HTTPException(
             status_code=500, detail=f"Failed to retrieve file: {str(e)}"
         )
@@ -116,12 +153,30 @@ async def get_file_from_s3(file_url: str):
 async def delete_file_from_s3(file_url: str):
     """Delete file from S3 given its URL"""
     try:
-        # Extract key from URL
-        key = file_url.split(".amazonaws.com/")[1]
-        logger.info(f"Deleting file from S3: {key}")
+        from urllib.parse import unquote
+        
+        logger.info(f"Deleting file with URL: {file_url}")
+        
+        # Handle both CloudFront and S3 URLs
+        if "cloudfront.net" in file_url:
+            # CloudFront URL format: https://d2ljorwegx33x7.cloudfront.net/filename
+            key = file_url.split("cloudfront.net/")[1]
+        elif ".amazonaws.com/" in file_url:
+            # S3 URL format: https://bucket.s3.region.amazonaws.com/filename
+            key = file_url.split(".amazonaws.com/")[1]
+        else:
+            # Assume it's just the key/filename
+            key = file_url
+        
+        # URL decode the key to handle spaces and special characters
+        decoded_key = unquote(key)
+        logger.info(f"Deleting file from S3: {decoded_key}")
 
-        s3_client.delete_object(Bucket=S3_BUCKET, Key=key)
+        s3_client.delete_object(Bucket=S3_BUCKET, Key=decoded_key)
         logger.info("File successfully deleted")
+    except IndexError as e:
+        logger.error(f"Error parsing URL for deletion '{file_url}': {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid file URL format: {file_url}")
     except ClientError as e:
         logger.error(f"Error deleting from S3: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to delete file: {str(e)}")
@@ -146,9 +201,11 @@ async def create_note(
     date: str = Form(...),
     image: UploadFile | None = File(None),
     audio: UploadFile | None = File(None),
+    video: UploadFile | None = File(None),
 ):
     image_meta = None
     audio_meta = None
+    video_meta = None
 
     # Process image if provided
     if image:
@@ -157,6 +214,10 @@ async def create_note(
     # Process audio if provided
     if audio:
         audio_meta = await save_file_to_s3(audio, "audio")
+
+    # Process video if provided
+    if video:
+        video_meta = await save_file_to_s3(video, "videos")
 
     # Get the next available ID
     note_id = await get_next_sequence_value()
@@ -177,6 +238,10 @@ async def create_note(
     if audio_meta:
         note["audio_url"] = audio_meta["url"]
 
+    # Add video data if provided
+    if video_meta:
+        note["video_url"] = video_meta["url"]
+
     result = notes_collection.insert_one(note)
     if result.inserted_id:
         return {
@@ -185,8 +250,61 @@ async def create_note(
             "mongo_id": str(result.inserted_id),
             "image_url": image_meta["url"] if image_meta else None,
             "audio_url": audio_meta["url"] if audio_meta else None,
+            "video_url": video_meta["url"] if video_meta else None,
         }
     raise HTTPException(status_code=400, detail="Failed to create note")
+
+
+@notes_router.get("/debug/s3-files")
+async def debug_s3_files(current_user: Annotated[User, Depends(get_current_active_user)]):
+    """Debug endpoint to list files in S3 bucket"""
+    try:
+        response = s3_client.list_objects_v2(Bucket=S3_BUCKET, MaxKeys=50)
+        
+        if 'Contents' not in response:
+            return {"message": "No files found in S3 bucket", "bucket": S3_BUCKET}
+        
+        files = []
+        for obj in response['Contents']:
+            files.append({
+                "key": obj['Key'],
+                "size": obj['Size'],
+                "last_modified": obj['LastModified'].isoformat(),
+                "cloudfront_url": f"https://d2ljorwegx33x7.cloudfront.net/{obj['Key']}"
+            })
+        
+        return {
+            "bucket": S3_BUCKET,
+            "total_files": len(files),
+            "files": files
+        }
+    except Exception as e:
+        logger.error(f"Error listing S3 files: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@notes_router.get("/debug/notes")
+async def debug_notes(current_user: Annotated[User, Depends(get_current_active_user)]):
+    """Debug endpoint to see note structure and URLs"""
+    try:
+        notes = []
+        cursor = notes_collection.find({"user_id": current_user.username})
+        for note in cursor:
+            debug_note = {
+                "id": note.get("id"),
+                "title": note.get("title"),
+                "has_image": bool(note.get("image_url")),
+                "image_url": note.get("image_url"),
+                "has_audio": bool(note.get("audio_url")),
+                "audio_url": note.get("audio_url"),
+                "has_video": bool(note.get("video_url")),
+                "video_url": note.get("video_url"),
+            }
+            notes.append(debug_note)
+        return {"user": current_user.username, "notes": notes}
+    except Exception as e:
+        logger.error(f"Error in debug_notes: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @notes_router.get("/notes", response_model=List[Note])
@@ -212,11 +330,16 @@ async def get_note(
 async def get_note_image(
     note_id: int, current_user: Annotated[User, Depends(get_current_active_user)]
 ):
-    note = notes_collection.find_one({"id": note_id, "user_id": current_user.username})
-    if not note or not note.get("image_url"):
-        raise HTTPException(status_code=404, detail="Note or image not found")
-
     try:
+        note = notes_collection.find_one({"id": note_id, "user_id": current_user.username})
+        if not note:
+            raise HTTPException(status_code=404, detail="Note not found")
+        
+        if not note.get("image_url"):
+            raise HTTPException(status_code=404, detail="Note has no image")
+
+        logger.info(f"Attempting to get image for note {note_id} with URL: {note.get('image_url')}")
+        
         # Get image
         image_data = await get_file_from_s3(note["image_url"])
 
@@ -225,8 +348,11 @@ async def get_note_image(
         return Response(
             content=image_data["data"], media_type=image_data["content_type"]
         )
+    except HTTPException:
+        # Re-raise HTTP exceptions (they already have proper status codes)
+        raise
     except Exception as e:
-        logger.error(f"Error in get_note_image: {e}")
+        logger.error(f"Error in get_note_image for note {note_id}: {e}")
         raise HTTPException(
             status_code=500, detail=f"Failed to retrieve image: {str(e)}"
         )
@@ -256,6 +382,30 @@ async def get_note_audio(
         )
 
 
+@notes_router.get("/video/{note_id}")
+async def get_note_video(
+    note_id: int, current_user: Annotated[User, Depends(get_current_active_user)]
+):
+    note = notes_collection.find_one({"id": note_id, "user_id": current_user.username})
+    if not note or not note.get("video_url"):
+        raise HTTPException(status_code=404, detail="Note or video not found")
+
+    try:
+        # Get video
+        video_data = await get_file_from_s3(note["video_url"])
+
+        from fastapi.responses import Response
+
+        return Response(
+            content=video_data["data"], media_type=video_data["content_type"]
+        )
+    except Exception as e:
+        logger.error(f"Error in get_note_video: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to retrieve video: {str(e)}"
+        )
+
+
 @notes_router.delete("/notes/{note_id}")
 async def delete_note(
     note_id: int, current_user: Annotated[User, Depends(get_current_active_user)]
@@ -277,6 +427,10 @@ async def delete_note(
         if note.get("audio_url"):
             await delete_file_from_s3(note["audio_url"])
 
+        # Delete video from S3 if exists
+        if note.get("video_url"):
+            await delete_file_from_s3(note["video_url"])
+
         # Delete note from MongoDB
         result = notes_collection.delete_one(
             {"id": note_id, "user_id": current_user.username}
@@ -297,6 +451,7 @@ async def update_note(
     note_id: int,
     image: UploadFile | None = File(None),
     audio: UploadFile | None = File(None),
+    video: UploadFile | None = File(None),
     title: str = Form(...),
     description: str = Form(...),
     date: str = Form(...),
@@ -330,6 +485,16 @@ async def update_note(
             # Upload new audio
             audio_meta = await save_file_to_s3(audio, "audio")
 
+        # Process video if provided
+        video_meta = None
+        if video:
+            # Delete old video if it exists
+            if existing_note.get("video_url"):
+                await delete_file_from_s3(existing_note["video_url"])
+
+            # Upload new video
+            video_meta = await save_file_to_s3(video, "videos")
+
         # Prepare update data
         update_data = {
             "title": title,
@@ -344,6 +509,10 @@ async def update_note(
         # Add audio data if new audio provided
         if audio_meta:
             update_data["audio_url"] = audio_meta["url"]
+
+        # Add video data if new video provided
+        if video_meta:
+            update_data["video_url"] = video_meta["url"]
 
         # Update note in MongoDB
         result = notes_collection.update_one(
